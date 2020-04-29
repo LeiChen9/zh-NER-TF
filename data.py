@@ -1,5 +1,8 @@
 import sys, pickle, os, random
 import numpy as np
+import pandas as pd
+from tqdm import tqdm
+import pdb
 
 ## tags, BIO
 tag2label = {"O": 0,
@@ -29,6 +32,39 @@ def read_corpus(corpus_path):
             sent_, tag_ = [], []
 
     return data
+
+def read_pre_train_data(data_path, seq_len):
+    """
+    Read pretrain data and return list of samples
+    :param data_path:
+    :return: data
+    """
+    data = []
+    files = os.listdir(data_path)
+    for file in tqdm(files):
+        try:
+            curr_df = pd.read_csv(data_path + '/' + file)
+            lines = curr_df.experience
+            for idx, line in lines.items():
+                print(line)
+                batches = len(line) // seq_len
+                for idx in range(batches):
+                    sent_ = (line[idx*seq_len:(idx+1)*seq_len-1])
+                    tag_ = (line[idx*seq_len+1:(idx+1)*seq_len])
+                    data.append((sent_, tag_))
+        except:
+            continue
+    # *******************************Remove************************************
+    f = pd.DataFrame(columns={'sentence', 'tag'})
+    for sen, tag in data:
+        f = f.append(pd.DataFrame({
+            'sentence': [sen],
+            'tag': [tag]
+        }))
+    f.to_csv(data_path + '/' + 'total.csv')
+    pdb.set_trace()
+    return data
+
 
 
 def vocab_build(vocab_path, corpus_path, min_count):

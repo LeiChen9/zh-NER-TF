@@ -1,14 +1,22 @@
+import warnings
+
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 import tensorflow as tf
 import numpy as np
 import os, argparse, time, random
 from model import BiLSTM_CRF
 from utils import str2bool, get_logger, get_entity
-from data import read_corpus, read_dictionary, tag2label, random_embedding
+from data import read_corpus, read_dictionary, tag2label, random_embedding, read_pre_train_data
+import pdb
 
 
 ## Session configuration
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # default: 0
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # default: 0
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 config.gpu_options.per_process_gpu_memory_fraction = 0.2  # need ~700MB GPU memory
@@ -32,6 +40,7 @@ parser.add_argument('--embedding_dim', type=int, default=300, help='random init 
 parser.add_argument('--shuffle', type=str2bool, default=True, help='shuffle training data before each epoch')
 parser.add_argument('--mode', type=str, default='demo', help='train/test/demo')
 parser.add_argument('--demo_model', type=str, default='1521112368', help='model for test and demo')
+parser.add_argument('--seq_length', type=int, default=20, help='Pretrain language model seq length')
 args = parser.parse_args()
 
 
@@ -47,8 +56,11 @@ else:
 ## read corpus and get training data
 if args.mode != 'demo':
     train_path = os.path.join('.', args.train_data, 'train_data')
+    pre_train_path = os.path.join('.', args.train_data, 'resume_data')
     test_path = os.path.join('.', args.test_data, 'test_data')
     train_data = read_corpus(train_path)
+    pre_train_data = read_pre_train_data(pre_train_path, args.seq_length)
+
     test_data = read_corpus(test_path); test_size = len(test_data)
 
 
@@ -71,6 +83,22 @@ log_path = os.path.join(result_path, "log.txt")
 paths['log_path'] = log_path
 get_logger(log_path).info(str(args))
 
+## Pretrain language model
+if args.mode == 'pre_train':
+    args.CRF = False
+    model = BiLSTM_CRF(args, embeddings, tag2label, word2id, paths, config=config)
+    model.num_tags = len(word2id)
+    model.build_graph()
+
+    ## hyperparameters-tuning, split train/dev
+    # dev_data = train_data[:5000]; dev_size = len(dev_data)
+    # train_data = train_data[5000:]; train_size = len(train_data)
+    # print("train data: {0}\ndev data: {1}".format(train_size, dev_size))
+    # model.train(train=train_data, dev=dev_data)
+
+    ## train model on the whole training data
+    print("train data: {}".format(len(pre_train_data)))
+    model.train(train=pre_train_data, dev=test_data)  # use test_data as the dev_data to see overfitting phenomena
 
 ## training model
 if args.mode == 'train':

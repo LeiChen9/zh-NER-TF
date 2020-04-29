@@ -23,7 +23,8 @@ class BiLSTM_CRF(object):
         self.clip_grad = args.clip
         self.tag2label = tag2label
         self.num_tags = len(tag2label)
-        self.vocab = vocab
+        # self.num_tags = len(vocab)
+        self.vocab = vocab  # word2id
         self.shuffle = args.shuffle
         self.model_path = paths['model_path']
         self.summary_path = paths['summary_path']
@@ -197,7 +198,7 @@ class BiLSTM_CRF(object):
         :return:
         """
         num_batches = (len(train) + self.batch_size - 1) // self.batch_size
-
+        
         start_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         batches = batch_yield(train, self.batch_size, self.vocab, self.tag2label, shuffle=self.shuffle)
         for step, (seqs, labels) in enumerate(batches):
